@@ -24,6 +24,15 @@ LOCAL_KERNEL := device/malata/smba1002/kernel
 else
 LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
+PRODUCT_COPY_FILES += \
+    $(LOCAL_KERNEL):kernel
+
+#$(call inherit-product, build/target/product/full.mk)
+
+PRODUCT_BUILD_PROP_OVERRIDES += BUILD_UTC_DATE=0
+PRODUCT_NAME := full_smba1002
+PRODUCT_DEVICE := smba1002
+
 
 DEVICE_PACKAGE_OVERLAYS := device/malata/smba1002/overlay
 
