@@ -21,7 +21,7 @@ PRODUCT_PACKAGES := \
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base.mk)
 
 # Inherit from smba1002 device
-$(call inherit-product, device/malata/smba1002/devicei_smba1002.mk)
+$(call inherit-product, device/malata/smba1002/device_smba1002.mk)
 
 # The gps config appropriate for this device
 $(call inherit-product, device/common/gps/gps_us_supl.mk)
