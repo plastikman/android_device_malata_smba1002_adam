@@ -1,5 +1,5 @@
 #
-# system.prop for adam 
+# system.prop for smba1002 
 #
 
 rild.libpath=/system/lib/libmbm-ril.so

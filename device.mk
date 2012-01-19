@@ -20,12 +20,12 @@
 # Everything in this directory will become public
 
 ifeq ($(TARGET_PREBUILT_KERNEL),)
-LOCAL_KERNEL := device/notionink/adam/kernel
+LOCAL_KERNEL := device/malata/smba1002/kernel
 else
 LOCAL_KERNEL := $(TARGET_PREBUILT_KERNEL)
 endif
 
-DEVICE_PACKAGE_OVERLAYS := device/notionink/adam/overlay
+DEVICE_PACKAGE_OVERLAYS := device/malata/smba1002/overlay
 
 # uses mdpi artwork where available
 PRODUCT_AAPT_CONFIG := normal mdpi
@@ -33,34 +33,34 @@ PRODUCT_AAPT_PREF_CONFIG := mdpi
 PRODUCT_LOCALES += mdpi
 
 
-# Adam/Harmony Configs
+# smba1002/Harmony Configs
 PRODUCT_COPY_FILES := \
     $(LOCAL_KERNEL):kernel \
-    device/notionink/adam/files/init.harmony.rc:root/init.harmony.rc \
-    device/notionink/adam/files/ueventd.harmony.rc:root/ueventd.harmony.rc \
-    device/notionink/adam/files/nvram.txt:system/etc/wifi/nvram.txt
+    device/malata/smba1002/files/init.harmony.rc:root/init.harmony.rc \
+    device/malata/smba1002/files/ueventd.harmony.rc:root/ueventd.harmony.rc \
+    device/malata/smba1002/files/nvram.txt:system/etc/wifi/nvram.txt
 
 # Modules
 PRODUCT_COPY_FILES += \
-    device/notionink/adam/modules/scsi_wait_scan.ko:system/lib/modules/scsi_wait_scan.ko \
-    device/notionink/adam/modules/tun.ko:system/lib/modules/tun.ko \
-    device/notionink/adam/modules/bcm4329.ko:system/lib/modules/bcm4329.ko
+    device/malata/smba1002/modules/scsi_wait_scan.ko:system/lib/modules/scsi_wait_scan.ko \
+    device/malata/smba1002/modules/tun.ko:system/lib/modules/tun.ko \
+    device/malata/smba1002/modules/bcm4329.ko:system/lib/modules/bcm4329.ko
 
 # Bluetooth
 PRODUCT_COPY_FILES += \
-    device/notionink/adam/files/bcm4329.hcd:system/etc/firmware/bcm4329.hcd
+    device/malata/smba1002/files/bcm4329.hcd:system/etc/firmware/bcm4329.hcd
 	
 # Touchscreen
 PRODUCT_COPY_FILES += \
-    device/notionink/adam/files/at168_touch.idc:system/usr/idc/at168_touch.idc 
+    device/malata/smba1002/files/at168_touch.idc:system/usr/idc/at168_touch.idc 
 
 # Graphics
 PRODUCT_COPY_FILES += \
-    device/notionink/adam/files/media_profiles.xml:system/etc/media_profiles.xml
+    device/malata/smba1002/files/media_profiles.xml:system/etc/media_profiles.xml
 
 # Generic
 PRODUCT_COPY_FILES += \
-   device/notionink/adam/files/vold.fstab:system/etc/vold.fstab
+   device/malata/smba1002/files/vold.fstab:system/etc/vold.fstab
 
 PRODUCT_PROPERTY_OVERRIDES := \
     wifi.interface=wlan0 \
@@ -137,4 +137,4 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 
 $(call inherit-product, frameworks/base/build/tablet-dalvik-heap.mk)
-$(call inherit-product, vendor/notionink/adam/device-vendor.mk)
+$(call inherit-product, vendor/malata/smba1002/device-vendor.mk)

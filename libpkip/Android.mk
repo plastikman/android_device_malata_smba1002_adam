@@ -15,7 +15,7 @@
 #
 LOCAL_PATH := $(my-dir)
 
-ifeq (adam,$(TARGET_DEVICE))
+ifeq (smba1002,$(TARGET_DEVICE))
 
 include $(CLEAR_VARS)
 

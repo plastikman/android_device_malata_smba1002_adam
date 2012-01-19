@@ -63,7 +63,7 @@
 
 
 /* ALSA card */
-#define CARD_ADAM 0
+#define CARD_smba1002 0
 
 /* ALSA ports for card0 */
 #define PORT_MM    0 /* CODEC port */
@@ -219,7 +219,7 @@ struct mixer_ctls
 
 };
 
-struct adam_audio_device {
+struct smba1002_audio_device {
     struct audio_hw_device hw_device;
 
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
@@ -228,14 +228,14 @@ struct adam_audio_device {
     int mode;
     int devices;
     int in_call;
-    struct adam_stream_in *active_input;
-    struct adam_stream_out *active_output;
+    struct smba1002_stream_in *active_input;
+    struct smba1002_stream_out *active_output;
     bool mic_mute;
     struct echo_reference_itfe *echo_reference;
 	bool low_power; /* if system is in a low power state */
 };
 
-struct adam_stream_out {
+struct smba1002_stream_out {
     struct audio_stream_out stream;
 
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
@@ -245,14 +245,14 @@ struct adam_stream_out {
     char *buffer;
     int standby;
     struct echo_reference_itfe *echo_reference;
-    struct adam_audio_device *dev;
+    struct smba1002_audio_device *dev;
     int write_threshold;
 	bool low_power;				/* If the stream is in a low power playback mode */
 };
 
 #define MAX_PREPROCESSORS 3 /* maximum one AGC + one NS + one AEC per input stream */
 
-struct adam_stream_in {
+struct smba1002_stream_in {
     struct audio_stream_in stream;
 
     pthread_mutex_t lock;       /* see note below on mutex acquisition order */
@@ -278,7 +278,7 @@ struct adam_stream_in {
     size_t ref_frames_in;
     int read_status;
 
-    struct adam_audio_device *dev;
+    struct smba1002_audio_device *dev;
 };
 
 /**
@@ -287,8 +287,8 @@ struct adam_stream_in {
  */
 
 static int adev_set_voice_volume(struct audio_hw_device *dev, float volume);
-static int do_input_standby(struct adam_stream_in *in);
-static int do_output_standby(struct adam_stream_out *out);
+static int do_input_standby(struct smba1002_stream_in *in);
+static int do_output_standby(struct smba1002_stream_out *out);
 
 /* The enable flag when 0 makes the assumption that enums are disabled by
  * "Off" and integers/booleans by 0 */
@@ -325,12 +325,12 @@ static int set_route_by_array(struct mixer *mixer, struct route_setting *route,
     return 0;
 }
 
-static void force_all_standby(struct adam_audio_device *adev)
+static void force_all_standby(struct smba1002_audio_device *adev)
 {
 	LOGD("force_all_standby");
 	
-    struct adam_stream_in *in;
-    struct adam_stream_out *out;
+    struct smba1002_stream_in *in;
+    struct smba1002_stream_out *out;
 
     if (adev->active_output) {
         out = adev->active_output;
@@ -347,7 +347,7 @@ static void force_all_standby(struct adam_audio_device *adev)
     }
 }
 
-static void select_mode(struct adam_audio_device *adev)
+static void select_mode(struct smba1002_audio_device *adev)
 {
 	LOGD("select_mode: %x",adev->mode);
 	
@@ -379,10 +379,10 @@ static void select_mode(struct adam_audio_device *adev)
 }
 
 /* must be called with hw device and output stream mutexes locked */
-static int start_output_stream(struct adam_stream_out *out)
+static int start_output_stream(struct smba1002_stream_out *out)
 {
-    struct adam_audio_device *adev = out->dev;
-    unsigned int card = CARD_ADAM;
+    struct smba1002_audio_device *adev = out->dev;
+    unsigned int card = CARD_smba1002;
     unsigned int port = PORT_MM;
 
     adev->active_output = out;
@@ -466,7 +466,7 @@ static size_t get_input_buffer_size(uint32_t sample_rate, int format, int channe
     return size * channel_count * sizeof(short);
 }
 
-static void add_echo_reference(struct adam_stream_out *out,
+static void add_echo_reference(struct smba1002_stream_out *out,
                                struct echo_reference_itfe *reference)
 {
     pthread_mutex_lock(&out->lock);
@@ -474,7 +474,7 @@ static void add_echo_reference(struct adam_stream_out *out,
     pthread_mutex_unlock(&out->lock);
 }
 
-static void remove_echo_reference(struct adam_stream_out *out,
+static void remove_echo_reference(struct smba1002_stream_out *out,
                                   struct echo_reference_itfe *reference)
 {
     pthread_mutex_lock(&out->lock);
@@ -486,7 +486,7 @@ static void remove_echo_reference(struct adam_stream_out *out,
     pthread_mutex_unlock(&out->lock);
 }
 
-static void put_echo_reference(struct adam_audio_device *adev,
+static void put_echo_reference(struct smba1002_audio_device *adev,
                           struct echo_reference_itfe *reference)
 {
     if (adev->echo_reference != NULL &&
@@ -498,7 +498,7 @@ static void put_echo_reference(struct adam_audio_device *adev,
     }
 }
 
-static struct echo_reference_itfe *get_echo_reference(struct adam_audio_device *adev,
+static struct echo_reference_itfe *get_echo_reference(struct smba1002_audio_device *adev,
                                                audio_format_t format,
                                                uint32_t channel_count,
                                                uint32_t sampling_rate)
@@ -522,7 +522,7 @@ static struct echo_reference_itfe *get_echo_reference(struct adam_audio_device *
     return adev->echo_reference;
 }
 
-static int get_playback_delay(struct adam_stream_out *out,
+static int get_playback_delay(struct smba1002_stream_out *out,
                        size_t frames,
                        struct echo_reference_buffer *buffer)
 {
@@ -565,7 +565,7 @@ static int out_set_sample_rate(struct audio_stream *stream, uint32_t rate)
 /* xface */
 static size_t out_get_buffer_size(const struct audio_stream *stream)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
 
     /* take resampling into account and return the closest majoring
     multiple of 16 frames, as audioflinger expects audio buffers to
@@ -594,9 +594,9 @@ static int out_set_format(struct audio_stream *stream, int format)
 }
 
 /* must be called with hw device and output stream mutexes locked */
-static int do_output_standby(struct adam_stream_out *out)
+static int do_output_standby(struct smba1002_stream_out *out)
 {
-    struct adam_audio_device *adev = out->dev;
+    struct smba1002_audio_device *adev = out->dev;
 
     if (!out->standby) {
         pcm_close(out->pcm);
@@ -618,7 +618,7 @@ static int do_output_standby(struct adam_stream_out *out)
 /* xface */
 static int out_standby(struct audio_stream *stream)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
     int status;
 
     pthread_mutex_lock(&out->dev->lock);
@@ -638,9 +638,9 @@ static int out_dump(const struct audio_stream *stream, int fd)
 /* xface */
 static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
-    struct adam_audio_device *adev = out->dev;
-    struct adam_stream_in *in;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
+    struct smba1002_audio_device *adev = out->dev;
+    struct smba1002_stream_in *in;
     struct str_parms *parms;
     char *str;
     char value[32];
@@ -696,7 +696,7 @@ static char * out_get_parameters(const struct audio_stream *stream, const char *
 /* xface */
 static uint32_t out_get_latency(const struct audio_stream_out *stream)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
 
     return (SHORT_PERIOD_SIZE * PLAYBACK_SHORT_PERIOD_COUNT * 1000) / out->config.rate;
 }
@@ -705,8 +705,8 @@ static uint32_t out_get_latency(const struct audio_stream_out *stream)
 static int out_set_volume(struct audio_stream_out *stream, float left,
                           float right)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
-    struct adam_audio_device *adev = out->dev;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
+    struct smba1002_audio_device *adev = out->dev;
 	
 	LOGD("out_set_volume: left:%f, right:%f\n",left,right);
 
@@ -728,12 +728,12 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
                          size_t bytes)
 {
     int ret;
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
-    struct adam_audio_device *adev = out->dev;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
+    struct smba1002_audio_device *adev = out->dev;
     size_t frame_size = audio_stream_frame_size(&out->stream.common);
     size_t in_frames = bytes / frame_size;
     size_t out_frames = RESAMPLER_BUFFER_SIZE / frame_size;
-    struct adam_stream_in *in;
+    struct smba1002_stream_in *in;
 	bool low_power;
     int kernel_frames;
     void *buf;
@@ -846,10 +846,10 @@ static int out_remove_audio_effect(const struct audio_stream *stream, effect_han
 /** audio_stream_in implementation **/
 
 /* must be called with hw device and input stream mutexes locked */
-static int start_input_stream(struct adam_stream_in *in)
+static int start_input_stream(struct smba1002_stream_in *in)
 {
     int ret = 0;
-    struct adam_audio_device *adev = in->dev;
+    struct smba1002_audio_device *adev = in->dev;
 
     adev->active_input = in;
 
@@ -884,7 +884,7 @@ static int start_input_stream(struct adam_stream_in *in)
 /* xface */
 static uint32_t in_get_sample_rate(const struct audio_stream *stream)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
 
     return in->requested_rate;
 }
@@ -898,7 +898,7 @@ static int in_set_sample_rate(struct audio_stream *stream, uint32_t rate)
 /* xface */
 static size_t in_get_buffer_size(const struct audio_stream *stream)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
 
     return get_input_buffer_size(in->requested_rate,
                                  AUDIO_FORMAT_PCM_16_BIT,
@@ -908,7 +908,7 @@ static size_t in_get_buffer_size(const struct audio_stream *stream)
 /* xface */
 static uint32_t in_get_channels(const struct audio_stream *stream)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
 
     if (in->config.channels == 1) {
         return AUDIO_CHANNEL_IN_MONO;
@@ -930,9 +930,9 @@ static int in_set_format(struct audio_stream *stream, int format)
 }
 
 /* must be called with hw device and input stream mutexes locked */
-static int do_input_standby(struct adam_stream_in *in)
+static int do_input_standby(struct smba1002_stream_in *in)
 {
-    struct adam_audio_device *adev = in->dev;
+    struct smba1002_audio_device *adev = in->dev;
 
     if (!in->standby) {
         pcm_close(in->pcm);
@@ -958,7 +958,7 @@ static int do_input_standby(struct adam_stream_in *in)
 /* xface */
 static int in_standby(struct audio_stream *stream)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
     int status;
 
     pthread_mutex_lock(&in->dev->lock);
@@ -978,8 +978,8 @@ static int in_dump(const struct audio_stream *stream, int fd)
 /* xface */
 static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
-    struct adam_audio_device *adev = in->dev;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
+    struct smba1002_audio_device *adev = in->dev;
     struct str_parms *parms;
     char *str;
     char value[32];
@@ -1029,8 +1029,8 @@ static char * in_get_parameters(const struct audio_stream *stream,
 /* xface */
 static int in_set_gain(struct audio_stream_in *stream, float gain)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
-    struct adam_audio_device *adev = in->dev;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
+    struct smba1002_audio_device *adev = in->dev;
 
 	unsigned int channel;
 	
@@ -1044,7 +1044,7 @@ static int in_set_gain(struct audio_stream_in *stream, float gain)
     return 0;
 }
 
-static void get_capture_delay(struct adam_stream_in *in,
+static void get_capture_delay(struct smba1002_stream_in *in,
                        size_t frames,
                        struct echo_reference_buffer *buffer)
 {
@@ -1091,7 +1091,7 @@ static void get_capture_delay(struct adam_stream_in *in,
 
 }
 
-static int32_t update_echo_reference(struct adam_stream_in *in, size_t frames)
+static int32_t update_echo_reference(struct smba1002_stream_in *in, size_t frames)
 {
     struct echo_reference_buffer b;
     b.delay_ns = 0;
@@ -1157,7 +1157,7 @@ static int set_preprocessor_echo_delay(effect_handle_t handle,
     return set_preprocessor_param(handle, param);
 }
 
-static void push_echo_reference(struct adam_stream_in *in, size_t frames)
+static void push_echo_reference(struct smba1002_stream_in *in, size_t frames)
 {
     /* read frames from echo reference buffer and update echo delay
      * in->ref_frames_in is updated with frames available in in->ref_buf */
@@ -1192,13 +1192,13 @@ static void push_echo_reference(struct adam_stream_in *in, size_t frames)
 static int get_next_buffer(struct resampler_buffer_provider *buffer_provider,
                                    struct resampler_buffer* buffer)
 {
-    struct adam_stream_in *in;
+    struct smba1002_stream_in *in;
 
     if (buffer_provider == NULL || buffer == NULL)
         return -EINVAL;
 
-    in = (struct adam_stream_in *)((char *)buffer_provider -
-                                   offsetof(struct adam_stream_in, buf_provider));
+    in = (struct smba1002_stream_in *)((char *)buffer_provider -
+                                   offsetof(struct smba1002_stream_in, buf_provider));
 
     if (in->pcm == NULL) {
         buffer->raw = NULL;
@@ -1233,20 +1233,20 @@ static int get_next_buffer(struct resampler_buffer_provider *buffer_provider,
 static void release_buffer(struct resampler_buffer_provider *buffer_provider,
                                   struct resampler_buffer* buffer)
 {
-    struct adam_stream_in *in;
+    struct smba1002_stream_in *in;
 
     if (buffer_provider == NULL || buffer == NULL)
         return;
 
-    in = (struct adam_stream_in *)((char *)buffer_provider -
-                                   offsetof(struct adam_stream_in, buf_provider));
+    in = (struct smba1002_stream_in *)((char *)buffer_provider -
+                                   offsetof(struct smba1002_stream_in, buf_provider));
 
     in->frames_in -= buffer->frame_count;
 }
 
 /* read_frames() reads frames from kernel driver, down samples to capture rate
  * if necessary and output the number of frames requested to the buffer specified */
-static ssize_t read_frames(struct adam_stream_in *in, void *buffer, ssize_t frames)
+static ssize_t read_frames(struct smba1002_stream_in *in, void *buffer, ssize_t frames)
 {
     ssize_t frames_wr = 0;
 
@@ -1285,7 +1285,7 @@ static ssize_t read_frames(struct adam_stream_in *in, void *buffer, ssize_t fram
 /* process_frames() reads frames from kernel driver (via read_frames()),
  * calls the active audio pre processings and output the number of frames requested
  * to the buffer specified */
-static ssize_t process_frames(struct adam_stream_in *in, void* buffer, ssize_t frames)
+static ssize_t process_frames(struct smba1002_stream_in *in, void* buffer, ssize_t frames)
 {
     ssize_t frames_wr = 0;
     audio_buffer_t in_buf;
@@ -1355,8 +1355,8 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
                        size_t bytes)
 {
     int ret = 0;
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
-    struct adam_audio_device *adev = in->dev;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
+    struct smba1002_audio_device *adev = in->dev;
     size_t frames_rq = bytes / audio_stream_frame_size(&stream->common);
 
     /* acquiring hw device mutex systematically is useful if a low priority thread is waiting
@@ -1407,7 +1407,7 @@ static uint32_t in_get_input_frames_lost(struct audio_stream_in *stream)
 static int in_add_audio_effect(const struct audio_stream *stream,
                                effect_handle_t effect)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
     int status;
     effect_descriptor_t desc;
 
@@ -1440,7 +1440,7 @@ exit:
 static int in_remove_audio_effect(const struct audio_stream *stream,
                                   effect_handle_t effect)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
     int i;
     int status = -EINVAL;
     bool found = false;
@@ -1491,13 +1491,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                                    uint32_t *channels, uint32_t *sample_rate,
                                    struct audio_stream_out **stream_out)
 {
-    struct adam_audio_device *ladev = (struct adam_audio_device *)dev;
-    struct adam_stream_out *out;
+    struct smba1002_audio_device *ladev = (struct smba1002_audio_device *)dev;
+    struct smba1002_stream_out *out;
     int ret;
 
 	LOGD("adev_open_output_stream");
 	
-    out = (struct adam_stream_out *)calloc(1, sizeof(struct adam_stream_out));
+    out = (struct smba1002_stream_out *)calloc(1, sizeof(struct smba1002_stream_out));
     if (!out)
         return -ENOMEM;
 
@@ -1557,7 +1557,7 @@ err_open:
 static void adev_close_output_stream(struct audio_hw_device *dev,
                                      struct audio_stream_out *stream)
 {
-    struct adam_stream_out *out = (struct adam_stream_out *)stream;
+    struct smba1002_stream_out *out = (struct smba1002_stream_out *)stream;
 
 	LOGD("adev_close_output_stream");
 	
@@ -1572,7 +1572,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
 /* xface */
 static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
     struct str_parms *parms;
     int ret = 0;
 	char *str;
@@ -1612,7 +1612,7 @@ static int adev_init_check(const struct audio_hw_device *dev)
 /* xface */
 static int adev_set_voice_volume(struct audio_hw_device *dev, float volume)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
 	
 	LOGD("adev_set_voice_volume: volume: %f", volume);
 	
@@ -1622,7 +1622,7 @@ static int adev_set_voice_volume(struct audio_hw_device *dev, float volume)
 /* xface */
 static int adev_set_master_volume(struct audio_hw_device *dev, float volume)
 {
-	struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+	struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
 
 	LOGD("adev_set_master_volume: volume: %f", volume);
 	
@@ -1637,7 +1637,7 @@ static int adev_set_master_volume(struct audio_hw_device *dev, float volume)
 /* xface */
 static int adev_set_mode(struct audio_hw_device *dev, int mode)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
 
 	LOGD("adev_set_mode: mode: %d", mode);
 	
@@ -1654,7 +1654,7 @@ static int adev_set_mode(struct audio_hw_device *dev, int mode)
 /* xface */
 static int adev_set_mic_mute(struct audio_hw_device *dev, bool state)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
 
 	LOGD("adev_set_mic_mute: state: %d", state);
 	
@@ -1669,7 +1669,7 @@ static int adev_set_mic_mute(struct audio_hw_device *dev, bool state)
 /* xface */
 static int adev_get_mic_mute(const struct audio_hw_device *dev, bool *state)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)dev;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)dev;
 
     *state = adev->mic_mute;
 
@@ -1697,8 +1697,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev, uint32_t devices,
                                   audio_in_acoustics_t acoustics,
                                   struct audio_stream_in **stream_in)
 {
-    struct adam_audio_device *ladev = (struct adam_audio_device *)dev;
-    struct adam_stream_in *in;
+    struct smba1002_audio_device *ladev = (struct smba1002_audio_device *)dev;
+    struct smba1002_stream_in *in;
     int ret;
     int channel_count = popcount(*channel_mask);
 
@@ -1707,7 +1707,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev, uint32_t devices,
     if (check_input_parameters(*sample_rate, *format, channel_count) != 0)
         return -EINVAL;
 
-    in = (struct adam_stream_in *)calloc(1, sizeof(struct adam_stream_in));
+    in = (struct smba1002_stream_in *)calloc(1, sizeof(struct smba1002_stream_in));
     if (!in)
         return -ENOMEM;
 
@@ -1775,7 +1775,7 @@ err:
 static void adev_close_input_stream(struct audio_hw_device *dev,
                                    struct audio_stream_in *stream)
 {
-    struct adam_stream_in *in = (struct adam_stream_in *)stream;
+    struct smba1002_stream_in *in = (struct smba1002_stream_in *)stream;
 
 	LOGD("adev_close_input_stream");
 	
@@ -1799,7 +1799,7 @@ static int adev_dump(const audio_hw_device_t *device, int fd)
 /* xface */
 static int adev_close(hw_device_t *device)
 {
-    struct adam_audio_device *adev = (struct adam_audio_device *)device;
+    struct smba1002_audio_device *adev = (struct smba1002_audio_device *)device;
 	
 	LOGD("adev_close");
 
@@ -1825,7 +1825,7 @@ static uint32_t adev_get_supported_devices(const struct audio_hw_device *dev)
 static int adev_open(const hw_module_t* module, const char* name,
                      hw_device_t** device)
 {
-    struct adam_audio_device *adev;
+    struct smba1002_audio_device *adev;
     int ret;
 
 	LOGE("adev_open: name:'%s'",name);
@@ -1833,7 +1833,7 @@ static int adev_open(const hw_module_t* module, const char* name,
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
         return -EINVAL;
 
-    adev = calloc(1, sizeof(struct adam_audio_device));
+    adev = calloc(1, sizeof(struct smba1002_audio_device));
     if (!adev)
         return -ENOMEM;
 
@@ -1964,7 +1964,7 @@ struct audio_module HAL_MODULE_INFO_SYM = {
         .version_major = 1,
         .version_minor = 0,
         .id = AUDIO_HARDWARE_MODULE_ID,
-        .name = "Adam audio HW HAL",
+        .name = "smba1002 audio HW HAL",
         .author = "The Android Open Source Project",
         .methods = &hal_module_methods,
     },
