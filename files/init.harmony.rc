@@ -1,3 +1,4 @@
+import init.harmony.usb.rc
 on early-init
     mount debugfs debugfs /sys/kernel/debug
 
